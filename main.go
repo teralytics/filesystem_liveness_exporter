@@ -76,6 +76,16 @@ func (x *Filesystem) Check(timeout time.Duration) func() *LivenessCheck {
 	}
 }
 
+// unquoteKernelMount takes a string quoted in the form of
+// This\040is\040a\040mountpoint\040with\040spaces and
+// undoes the quoting of octal characters.  The kernel
+// uses that quoting to protect shell programs parsing
+// /proc/mounts from erroneously parsing device files and
+// mount points that have special characters in them, and
+// to disambiguate them.
+//
+// It returns the unquoted path as in
+// This is a mountpoint with spaces
 func unquoteKernelMount(quoted string) (string, error) {
 	unquoted := ""
 	for i := 0; i < len(quoted); i++ {
