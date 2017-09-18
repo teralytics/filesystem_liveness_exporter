@@ -19,9 +19,17 @@ This exporter exports two metrics:
   the file system took to respond to the `readdir()` request, if
   it was responding at all.
 
+## Help
+
+Run `filesystem_liveness_exporter -?` to get information.
+
 The command line parameters that can be used are:
 
 * -timeout: specify how many seconds the exporter should wait for
   filesystem responses.
 * -fstypes: a comma-separated list of allowed file system types
   to poll, defaulting to the most common networked file systems.
+
+## License
+
+This program is distributed under the [Apache 2.0](LICENSE) license.
