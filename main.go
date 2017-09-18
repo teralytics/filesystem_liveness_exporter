@@ -106,7 +106,15 @@ func unquoteKernelMount(quoted string) (string, error) {
 	return unquoted, nil
 }
 
-func scanFilesystems(mountsFile string, allowedFsTypes []string) []*Filesystem {
+// discoverFilesystems discovers file systems as specified in the
+// mounts file (usually /proc/mounts).
+//
+// It returns a list of *Filesystem that specifies the device,
+// the mount point, and the file system type, of all mounted
+// devices, so long as they match the allowed file system
+// types passed to this function (or all file systems, if the
+// allowedFsTypes list is empty).
+func discoverFilesystems(mountsFile string, allowedFsTypes []string) []*Filesystem {
 	f, err := os.Open(mountsFile)
 	if err != nil {
 		panic(err)
@@ -147,7 +155,7 @@ func scanFilesystems(mountsFile string, allowedFsTypes []string) []*Filesystem {
 }
 
 func collectMetrics() []*CheckResult {
-	fses := scanFilesystems("/proc/mounts", strings.Split(*fsTypesFlag, ","))
+	fses := discoverFilesystems("/proc/mounts", strings.Split(*fsTypesFlag, ","))
 	waits := make(map[*Filesystem]func() *LivenessCheck)
 	for _, fs := range fses {
 		waits[fs] = fs.Check(time.Duration(*timeoutFlag) * time.Second)
