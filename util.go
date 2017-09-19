@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -58,4 +59,60 @@ func unquoteKernelMount(quoted string) (string, error) {
 		}
 	}
 	return unquoted, nil
+}
+
+// Filesystem represents a file system as it is mounted on the
+// system at the time DiscoverFilesystems is invoked.
+type Filesystem struct {
+	device     string
+	mountpoint string
+	fstype     string
+}
+
+// DiscoverFilesystems discovers file systems as specified in the
+// mounts file (usually /proc/mounts).
+//
+// It returns a list of *Filesystem that specifies the device,
+// the mount point, and the file system type, of all mounted
+// devices, so long as they match the allowed file system
+// types passed to this function (or all file systems, if the
+// allowedFsTypes list is empty).
+func DiscoverFilesystems(mountsFile string, allowedFsTypes []string) []*Filesystem {
+	f, err := os.Open(mountsFile)
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+	r := bufio.NewScanner(f)
+	fses := []*Filesystem{}
+	for r.Scan() {
+		sp := strings.Split(r.Text(), " ")
+		if len(sp) < 3 {
+			continue
+		}
+		correctType := len(allowedFsTypes) == 0 || (len(allowedFsTypes) == 1 && allowedFsTypes[0] == "")
+		for _, fsType := range allowedFsTypes {
+			if fsType == sp[2] {
+				correctType = true
+				break
+			}
+		}
+		if !correctType {
+			continue
+		}
+		unquotedDevice, err := unquoteKernelMount(sp[0])
+		if err != nil {
+			panic(err)
+		}
+		unquotedMountpoint, err := unquoteKernelMount(sp[1])
+		if err != nil {
+			panic(err)
+		}
+		fses = append(fses, &Filesystem{
+			device:     unquotedDevice,
+			mountpoint: unquotedMountpoint,
+			fstype:     sp[2],
+		})
+	}
+	return fses
 }
