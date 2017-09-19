@@ -23,7 +23,7 @@ func verboseLog(str string, args ...interface{}) {
 func main() {
 	flag.Parse()
 
-	if len(flag.Args()) > 1 {
+	if len(flag.Args()) == 2 {
 		os.Exit(CheckViaSubprocess(flag.Args()[0], flag.Args()[1]))
 	} else {
 		ServeMetrics(*webListenAddressFlag,

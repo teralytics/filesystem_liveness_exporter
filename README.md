@@ -10,11 +10,13 @@ prevent the exporter from hanging.   If your filesystem responds to
 unresponsive (for example, because the `readdir()` is cached), then
 the test result will not be faithful.
 
-This exporter exports two metrics:
+This exporter exports three metrics:
 
 * `vfs_filesystem_live`: a gauge 1 or 0 whether the file system has
   responded to `readdir()` or `read()` without hanging under the
   timeout specified on the command line (default 5 seconds).
+* `vfs_filesystem_error`: a gauge 1 or 0 whether the file system has
+  failed to `readdir()` or `read()` in the last check.
 * `vfs_filesystem_scan_duration_seconds` a gauge measuring how long
   the file system took to respond to the `readdir()` request, if
   it was responding at all.
@@ -45,20 +47,22 @@ system type currently mounted upon each `/metrics` check.
 If you do pass it, then the `read()` call will be used against
 the passed file name, under each mount point.
 
-If you pass `-check.read-file <somefilename>` and the file in
-question does not exist under the checked mount points, the
-metrics for that mount point will be omitted from the HTTP
-output of the program.
-
-If the checked mount point or the checked file return `EPERM`
-or `ENOTDIR`, the metrics will consider the mount point alive.
-
 The check happens in a subprocess, which gets killed if the
 check extends past the `timeout` parameter.
 
-Take real good care not to allow file system types that users
-may mount or write on, especially if you use the
-`-check.read-file` flag.
+Take real good care not to allow file system types that non-
+administrative users may mount or write on, especially if you
+use the `-check.read-file` flag.
+
+If you pass `-check.read-file <somefilename>` and the file in
+question does not exist under the checked mount points, the
+metrics for that mount point will show an error.  Failures
+to `readdir()` will also be treated the same.  Errors will
+be logged to standard error.  Exceptions to this norm are
+noted below.
+
+If the checked mount point or the checked file return `EPERM`
+or `ENOTDIR`, the metrics will consider the mount point alive.
 
 ## License
 
