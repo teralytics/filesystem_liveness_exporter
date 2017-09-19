@@ -22,20 +22,22 @@ func (m metricsElement) String() string {
 	return fmt.Sprintf("%s {mountpoint=\"%s\"} %f\n", m.Name, mt, m.Value)
 }
 
+func boolToFloat(b bool) float64 {
+	if b {
+		return 1.0
+	}
+	return 0.0
+}
+
 func dumpMetrics(res []*CheckResult, w http.ResponseWriter, r *http.Request) {
 	for _, item := range res {
-		l := metricsElement{"vfs_filesystem_error", item.filesystem.mountpoint, 0.0}
-		if item.check.err {
-			l.Value = 1.0
+		for _, elm := range []*metricsElement{
+			&metricsElement{"vfs_filesystem_error", item.filesystem.mountpoint, boolToFloat(item.check.err)},
+			&metricsElement{"vfs_filesystem_live", item.filesystem.mountpoint, boolToFloat(item.check.live)},
+			&metricsElement{"vfs_filesystem_scan_duration_seconds", item.filesystem.mountpoint, item.check.duration},
+		} {
+			fmt.Fprintf(w, "%s", elm)
 		}
-		fmt.Fprintf(w, "%s", l)
-		m := metricsElement{"vfs_filesystem_live", item.filesystem.mountpoint, 0.0}
-		if item.check.live {
-			m.Value = 1.0
-		}
-		fmt.Fprintf(w, "%s", m)
-		n := metricsElement{"vfs_filesystem_scan_duration_seconds", item.filesystem.mountpoint, item.check.duration}
-		fmt.Fprintf(w, "%s", n)
 	}
 }
 
