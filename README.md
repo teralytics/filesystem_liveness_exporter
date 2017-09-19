@@ -29,6 +29,9 @@ The command line parameters that can be used are:
   filesystem responses.
 * -fstypes: a comma-separated list of allowed file system types
   to poll, defaulting to the most common networked file systems.
+* -web.listen-address: a standard host:port or :port address to
+  listen on.
+* -verbose: whether to print verbose liveness checks.
 
 ## License
 
