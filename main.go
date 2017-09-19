@@ -16,6 +16,7 @@ import (
 
 var webListenAddressFlag = flag.String("web.listen-address", ":10458", "address on which to expose metrics and logs")
 var timeoutFlag = flag.Int("timeout", 5, "seconds to wait until declaring a liveness check failed")
+var verboseFlag = flag.Bool("verbose", false, "print liveness check progress on standard error")
 var fsTypesFlag = flag.String("fstypes", "nfs,nfs4,nfs3,cephfs,fuse.sshfs", "comma-separated file system types to include in the liveness check — pass the empty string to allow all")
 
 type Filesystem struct {
@@ -35,10 +36,17 @@ type CheckResult struct {
 	check      *LivenessCheck
 }
 
+func verboseLog(str string, args ...interface{}) {
+	if *verboseFlag {
+		log.Printf(str, args...)
+	}
+}
+
 func (x *Filesystem) Check(timeout time.Duration) func() *LivenessCheck {
 	doneChan := make(chan *LivenessCheck)
 
 	go func(c chan *LivenessCheck) {
+		verboseLog("Starting liveness check of %s", x.mountpoint)
 		start := time.Now()
 		// 		if x.mountpoint == "/" {
 		// 			time.Sleep(950 * time.Millisecond)
@@ -56,7 +64,7 @@ func (x *Filesystem) Check(timeout time.Duration) func() *LivenessCheck {
 				// Is not a directory indicates the file system is alive
 				lc.live = true
 			} else {
-				log.Printf("error: cannot read %s: (%T) %s", x.mountpoint, err, err)
+				log.Printf("Error: cannot read %s: (%T) %s", x.mountpoint, err, err)
 				lc.skip = true
 			}
 		} else {
@@ -64,13 +72,16 @@ func (x *Filesystem) Check(timeout time.Duration) func() *LivenessCheck {
 		}
 		c <- lc
 		close(c)
+		verboseLog("Done with liveness check of %s", x.mountpoint)
 	}(doneChan)
 
 	return func() *LivenessCheck {
 		select {
 		case y := <-doneChan:
+			verboseLog("Received result of liveness check of %s", x.mountpoint)
 			return y
 		case <-time.After(timeout):
+			verboseLog("Received timeout of liveness check of %s", x.mountpoint)
 			return &LivenessCheck{}
 		}
 	}
