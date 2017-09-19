@@ -19,7 +19,7 @@ type Filesystem struct {
 }
 
 type LivenessCheck struct {
-	skip     bool
+	err      bool
 	live     bool
 	duration float64
 }
@@ -37,7 +37,7 @@ func (x *Filesystem) Check(timeout time.Duration, optReadFile string) func() *Li
 	myself, err := os.Executable()
 	if err != nil {
 		log.Printf("Error: cannot find myself: (%T) %s", err, err)
-		lc.skip = true
+		lc.err = true
 		lc.duration = float64(time.Now().Sub(start)) / 1000000000
 		return func() *LivenessCheck { return lc }
 	}
@@ -58,11 +58,13 @@ func (x *Filesystem) Check(timeout time.Duration, optReadFile string) func() *Li
 		verboseLog("Ended liveness check of %s", x.mountpoint)
 		lc.duration = float64(time.Now().Sub(start)) / 1000000000
 		if err != nil {
-			if msg, ok := err.(*exec.ExitError); ok {
-				if msg.Sys().(syscall.WaitStatus).ExitStatus() == 4 {
-					lc.skip = true
+			if eerr, ok := err.(*exec.ExitError); ok {
+				if !eerr.Sys().(syscall.WaitStatus).Signaled() {
+					log.Printf("Error: checker subprocess for %s failed: (%T) %s", x.mountpoint, err, err)
+					lc.err = true
 				}
 			} else {
+				lc.err = true
 				log.Printf("Error: checker subprocess for %s failed: (%T) %s", x.mountpoint, err, err)
 			}
 		} else {

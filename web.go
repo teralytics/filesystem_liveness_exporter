@@ -24,18 +24,18 @@ func (m metricsElement) String() string {
 
 func dumpMetrics(res []*CheckResult, w http.ResponseWriter, r *http.Request) {
 	for _, item := range res {
-		if item.check.skip {
-			continue
+		l := metricsElement{"vfs_filesystem_error", item.filesystem.mountpoint, 0.0}
+		if item.check.err {
+			l.Value = 1.0
 		}
+		fmt.Fprintf(w, "%s", l)
 		m := metricsElement{"vfs_filesystem_live", item.filesystem.mountpoint, 0.0}
 		if item.check.live {
 			m.Value = 1.0
 		}
 		fmt.Fprintf(w, "%s", m)
-		if item.check.live {
-			n := metricsElement{"vfs_filesystem_scan_duration_seconds", item.filesystem.mountpoint, item.check.duration}
-			fmt.Fprintf(w, "%s", n)
-		}
+		n := metricsElement{"vfs_filesystem_scan_duration_seconds", item.filesystem.mountpoint, item.check.duration}
+		fmt.Fprintf(w, "%s", n)
 	}
 }
 
