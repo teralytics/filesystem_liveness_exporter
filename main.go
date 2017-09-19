@@ -22,14 +22,12 @@ func verboseLog(str string, args ...interface{}) {
 
 func main() {
 	flag.Parse()
-
 	if len(flag.Args()) == 2 {
 		os.Exit(CheckViaSubprocess(flag.Args()[0], flag.Args()[1]))
 	} else {
-		ServeMetrics(*webListenAddressFlag,
+		Server(*webListenAddressFlag,
 			time.Duration(*timeoutFlag)*time.Second,
 			strings.Split(*fsTypesFlag, ","),
 			*readFileFlag)
 	}
-
 }
