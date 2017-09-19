@@ -41,9 +41,8 @@ func dumpMetrics(res []*CheckResult, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func metrics(timeout time.Duration, fsTypes []string, optReadFile string, w http.ResponseWriter, r *http.Request) {
-	res := CollectMetrics(timeout, fsTypes, optReadFile)
-	dumpMetrics(res, w, r)
+func metrics(collector func() []*CheckResult, w http.ResponseWriter, r *http.Request) {
+	dumpMetrics(collector(), w, r)
 }
 
 func ServeMetrics(listenAddr string, collectTimeout time.Duration, fsTypes []string, optReadFile string) {
@@ -55,7 +54,11 @@ func ServeMetrics(listenAddr string, collectTimeout time.Duration, fsTypes []str
 		MaxHeaderBytes: 4096,
 	}
 	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		metrics(collectTimeout, fsTypes, optReadFile, w, r)
+		metrics(
+			func() []*CheckResult {
+				return CollectMetrics(collectTimeout, fsTypes, optReadFile)
+			},
+			w, r)
 	})
 	//http.HandleFunc("/quitquitquit", func(http.ResponseWriter, *http.Request) { os.Exit(0) })
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
