@@ -7,8 +7,15 @@ import (
 	"syscall"
 )
 
-func CheckViaSubprocess(path string) (exitstatus int) {
-	_, err := ioutil.ReadDir(path)
+func CheckViaSubprocess(mode, path string) (exitstatus int) {
+	var err error
+	if mode == "readdir" {
+		_, err = ioutil.ReadDir(path)
+	} else if mode == "read" {
+		_, err = ioutil.ReadFile(path)
+	} else {
+		panic(mode)
+	}
 	if err != nil {
 		if os.IsPermission(err) {
 			// Permission denied indicates the file system is alive.
@@ -17,7 +24,7 @@ func CheckViaSubprocess(path string) (exitstatus int) {
 			// Is not a directory indicates the file system is alive
 			exitstatus = 0
 		} else {
-			log.Printf("Error: cannot read %s: (%T) %s", path, err, err)
+			log.Printf("Checker: cannot %s() %s: (%T) %s", mode, path, err, err)
 			exitstatus = 4
 		}
 	}
