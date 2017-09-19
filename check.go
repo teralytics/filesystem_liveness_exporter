@@ -1,21 +1,17 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"time"
 )
 
-type Filesystem struct {
-	device     string
-	mountpoint string
-	fstype     string
+type FilesystemChecker struct {
+	*Filesystem
 }
 
 type LivenessCheck struct {
@@ -25,11 +21,11 @@ type LivenessCheck struct {
 }
 
 type CheckResult struct {
-	filesystem *Filesystem
+	filesystem *FilesystemChecker
 	check      *LivenessCheck
 }
 
-func (x *Filesystem) Check(timeout time.Duration, optReadFile string) func() *LivenessCheck {
+func (x *FilesystemChecker) Check(timeout time.Duration, optReadFile string) func() *LivenessCheck {
 	doneChan := make(chan *LivenessCheck)
 
 	start := time.Now()
@@ -78,62 +74,18 @@ func (x *Filesystem) Check(timeout time.Duration, optReadFile string) func() *Li
 	}
 }
 
-// discoverFilesystems discovers file systems as specified in the
-// mounts file (usually /proc/mounts).
-//
-// It returns a list of *Filesystem that specifies the device,
-// the mount point, and the file system type, of all mounted
-// devices, so long as they match the allowed file system
-// types passed to this function (or all file systems, if the
-// allowedFsTypes list is empty).
-func discoverFilesystems(mountsFile string, allowedFsTypes []string) []*Filesystem {
-	f, err := os.Open(mountsFile)
-	if err != nil {
-		panic(err)
-	}
-	defer f.Close()
-	r := bufio.NewScanner(f)
-	fses := []*Filesystem{}
-	for r.Scan() {
-		sp := strings.Split(r.Text(), " ")
-		if len(sp) < 3 {
-			continue
-		}
-		correctType := len(allowedFsTypes) == 0 || (len(allowedFsTypes) == 1 && allowedFsTypes[0] == "")
-		for _, fsType := range allowedFsTypes {
-			if fsType == sp[2] {
-				correctType = true
-				break
-			}
-		}
-		if !correctType {
-			continue
-		}
-		unquotedDevice, err := unquoteKernelMount(sp[0])
-		if err != nil {
-			panic(err)
-		}
-		unquotedMountpoint, err := unquoteKernelMount(sp[1])
-		if err != nil {
-			panic(err)
-		}
-		fses = append(fses, &Filesystem{
-			device:     unquotedDevice,
-			mountpoint: unquotedMountpoint,
-			fstype:     sp[2],
-		})
-	}
-	return fses
-}
-
 func CollectMetrics(timeout time.Duration, fsTypes []string, optReadFile string) []*CheckResult {
-	fses := discoverFilesystems("/proc/mounts", fsTypes)
-	waits := make(map[*Filesystem]func() *LivenessCheck)
+	fses := DiscoverFilesystems("/proc/mounts", fsTypes)
+	fslist := []*FilesystemChecker{}
 	for _, fs := range fses {
+		fslist = append(fslist, &FilesystemChecker{fs})
+	}
+	waits := make(map[*FilesystemChecker]func() *LivenessCheck)
+	for _, fs := range fslist {
 		waits[fs] = fs.Check(timeout, optReadFile)
 	}
 	res := []*CheckResult{}
-	for _, fs := range fses {
+	for _, fs := range fslist {
 		res = append(res, &CheckResult{fs, waits[fs]()})
 	}
 	return res
