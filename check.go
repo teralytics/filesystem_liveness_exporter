@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -28,7 +29,7 @@ type CheckResult struct {
 	check      *LivenessCheck
 }
 
-func (x *Filesystem) Check(timeout time.Duration) func() *LivenessCheck {
+func (x *Filesystem) Check(timeout time.Duration, optReadFile string) func() *LivenessCheck {
 	doneChan := make(chan *LivenessCheck)
 
 	start := time.Now()
@@ -42,7 +43,12 @@ func (x *Filesystem) Check(timeout time.Duration) func() *LivenessCheck {
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), timeout)
-	cmd := exec.CommandContext(ctx, myself, x.mountpoint)
+	var cmd *exec.Cmd
+	if optReadFile != "" {
+		cmd = exec.CommandContext(ctx, myself, "read", filepath.Join(x.mountpoint, optReadFile))
+	} else {
+		cmd = exec.CommandContext(ctx, myself, "readdir", x.mountpoint)
+	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
@@ -52,11 +58,12 @@ func (x *Filesystem) Check(timeout time.Duration) func() *LivenessCheck {
 		verboseLog("Ended liveness check of %s", x.mountpoint)
 		lc.duration = float64(time.Now().Sub(start)) / 1000000000
 		if err != nil {
-			log.Printf("Error: checker subprocess failed to read %s: (%T) %s", x.mountpoint, err, err)
 			if msg, ok := err.(*exec.ExitError); ok {
 				if msg.Sys().(syscall.WaitStatus).ExitStatus() == 4 {
 					lc.skip = true
 				}
+			} else {
+				log.Printf("Error: checker subprocess for %s failed: (%T) %s", x.mountpoint, err, err)
 			}
 		} else {
 			lc.live = true
@@ -117,11 +124,11 @@ func discoverFilesystems(mountsFile string, allowedFsTypes []string) []*Filesyst
 	return fses
 }
 
-func CollectMetrics(timeout time.Duration, fsTypes []string) []*CheckResult {
+func CollectMetrics(timeout time.Duration, fsTypes []string, optReadFile string) []*CheckResult {
 	fses := discoverFilesystems("/proc/mounts", fsTypes)
 	waits := make(map[*Filesystem]func() *LivenessCheck)
 	for _, fs := range fses {
-		waits[fs] = fs.Check(timeout)
+		waits[fs] = fs.Check(timeout, optReadFile)
 	}
 	res := []*CheckResult{}
 	for _, fs := range fses {
