@@ -29,23 +29,35 @@ func boolToFloat(b bool) float64 {
 	return 0.0
 }
 
-func dumpMetrics(res []*CheckResult, w http.ResponseWriter, r *http.Request) {
-	for _, item := range res {
+type metricsHandler struct {
+	timeout     time.Duration
+	fsTypes     []string
+	optReadFile string
+}
+
+func (m *metricsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fses := DiscoverFilesystems("/proc/mounts", m.fsTypes)
+	fslist := []*FilesystemChecker{}
+	for _, fs := range fses {
+		fslist = append(fslist, &FilesystemChecker{fs})
+	}
+	waits := make(map[*FilesystemChecker]func() *LivenessCheck)
+	for _, fs := range fslist {
+		waits[fs] = fs.Check(m.timeout, m.optReadFile)
+	}
+	for _, fs := range fslist {
+		check := waits[fs]()
 		for _, elm := range []*metricsElement{
-			&metricsElement{"vfs_filesystem_error", item.filesystem.mountpoint, boolToFloat(item.check.err)},
-			&metricsElement{"vfs_filesystem_live", item.filesystem.mountpoint, boolToFloat(item.check.live)},
-			&metricsElement{"vfs_filesystem_scan_duration_seconds", item.filesystem.mountpoint, item.check.duration},
+			&metricsElement{"vfs_filesystem_error", fs.mountpoint, boolToFloat(check.err)},
+			&metricsElement{"vfs_filesystem_live", fs.mountpoint, boolToFloat(check.live)},
+			&metricsElement{"vfs_filesystem_scan_duration_seconds", fs.mountpoint, check.duration},
 		} {
 			fmt.Fprintf(w, "%s", elm)
 		}
 	}
 }
 
-func metrics(collector func() []*CheckResult, w http.ResponseWriter, r *http.Request) {
-	dumpMetrics(collector(), w, r)
-}
-
-func ServeMetrics(listenAddr string, collectTimeout time.Duration, fsTypes []string, optReadFile string) {
+func Server(listenAddr string, collectTimeout time.Duration, fsTypes []string, optReadFile string) {
 	log.Printf("Serving status and metrics on address %s", listenAddr)
 	srv := &http.Server{
 		Addr:           listenAddr,
@@ -53,13 +65,7 @@ func ServeMetrics(listenAddr string, collectTimeout time.Duration, fsTypes []str
 		WriteTimeout:   (5 * time.Second) + collectTimeout,
 		MaxHeaderBytes: 4096,
 	}
-	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		metrics(
-			func() []*CheckResult {
-				return CollectMetrics(collectTimeout, fsTypes, optReadFile)
-			},
-			w, r)
-	})
+	http.Handle("/metrics", &metricsHandler{collectTimeout, fsTypes, optReadFile})
 	//http.HandleFunc("/quitquitquit", func(http.ResponseWriter, *http.Request) { os.Exit(0) })
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>

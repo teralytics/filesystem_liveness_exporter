@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// executable returns the path to the current executable.
 func executable() (string, error) {
 	switch runtime.GOOS {
 	case "linux", "android":

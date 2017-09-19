@@ -10,21 +10,20 @@ import (
 	"time"
 )
 
+// FilesystemChecker holds the data of the filesystem to be checked
+// and loads it with the functionality necessary to run a check.
 type FilesystemChecker struct {
 	*Filesystem
 }
 
+// LivenessCheck is the result that Check() returns.
 type LivenessCheck struct {
 	err      bool
 	live     bool
 	duration float64
 }
 
-type CheckResult struct {
-	filesystem *FilesystemChecker
-	check      *LivenessCheck
-}
-
+// Check runs an asynchronous check on a FilesystemChecker.
 func (x *FilesystemChecker) Check(timeout time.Duration, optReadFile string) func() *LivenessCheck {
 	doneChan := make(chan *LivenessCheck)
 
@@ -72,21 +71,4 @@ func (x *FilesystemChecker) Check(timeout time.Duration, optReadFile string) fun
 	return func() *LivenessCheck {
 		return <-doneChan
 	}
-}
-
-func CollectMetrics(timeout time.Duration, fsTypes []string, optReadFile string) []*CheckResult {
-	fses := DiscoverFilesystems("/proc/mounts", fsTypes)
-	fslist := []*FilesystemChecker{}
-	for _, fs := range fses {
-		fslist = append(fslist, &FilesystemChecker{fs})
-	}
-	waits := make(map[*FilesystemChecker]func() *LivenessCheck)
-	for _, fs := range fslist {
-		waits[fs] = fs.Check(timeout, optReadFile)
-	}
-	res := []*CheckResult{}
-	for _, fs := range fslist {
-		res = append(res, &CheckResult{fs, waits[fs]()})
-	}
-	return res
 }
