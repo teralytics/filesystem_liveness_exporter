@@ -56,7 +56,7 @@ func ServeMetrics(listenAddr string, collectTimeout time.Duration, fsTypes []str
 	http.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
 		metrics(collectTimeout, fsTypes, w, r)
 	})
-	http.HandleFunc("/quitquitquit", func(http.ResponseWriter, *http.Request) { os.Exit(0) })
+	//http.HandleFunc("/quitquitquit", func(http.ResponseWriter, *http.Request) { os.Exit(0) })
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
   <head><title>File system liveness exporter</title></head>
