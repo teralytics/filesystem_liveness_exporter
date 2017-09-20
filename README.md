@@ -1,8 +1,9 @@
 # Filesystem liveness exporter
 
-This is an extremely simple filesystem liveness exporter that checks for
-hung filesystems and emits the result of those checks as metrics to your
-Prometheus master or other monitoring system.
+This is an extremely simple filesystem liveness exporter for
+[Prometheus](https://prometheus.io/) that checks for hung filesystems
+and emits the result of those checks as metrics to your Prometheus
+master or other monitoring system.
 
 Checks are performed in goroutines, a goroutine per filesystem each, to
 prevent the exporter from hanging.   If your filesystem responds to
