@@ -16,10 +16,8 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 )
